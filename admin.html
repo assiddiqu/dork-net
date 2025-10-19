@@ -1,156 +1,92 @@
-<!doctype html>
-<!--
-  MyFlix Admin - Full Working Admin Panel (HTML + CSS + JS)
-
-  Features implemented:
-  - Admin-only login (Firebase Auth). Only emails/UIDs listed in ADMIN_EMAILS/ADMIN_UIDS can access the dashboard.
-  - Real-time users & live viewers count (Firebase Realtime Database at /presence/{uid}).
-  - User account details table (name, email, lastSeen, online, coords).
-  - Live map (Leaflet) showing user locations and popups with details.
-  - 3D dynamic background using Three.js for a modern look.
-  - Robust error handling and MOCK mode if Firebase config isn't provided so you can test locally.
-
-  How to use:
-  1) Create a Firebase project and a Realtime Database.
-  2) Enable Email/Password provider in Authentication and create an admin account (your email).
-  3) Replace the firebaseConfig object below with your project's config values.
-  4) Edit ADMIN_EMAILS or ADMIN_UIDS to include your admin account (recommended: use your UID for security).
-  5) Add presence-writing code to your main user site so it writes to /presence/{uid} (example below).
-
-  Security notes:
-  - This front-end enforces admin access client-side by checking the signed-in user's email/uid.
-    For production, also enforce admin-only rules in your Realtime Database security rules or use the Admin SDK server-side.
--->
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MyFlix Admin Panel</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel - MyFlix Dashboard (Robust)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root{--bg:#0b0b12;--panel:#0f1724;--accent:#e50914;--muted:#9aa0a6}
-    *{box-sizing:border-box;margin:0;padding:0}
-    body,html{height:100%;font-family:Inter, system-ui, sans-serif;background:linear-gradient(180deg,#050508, #071025);color:#fff}
-    .app{position:relative;min-height:100vh}
-
-    /* Topbar */
-    .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:linear-gradient(90deg, rgba(255,255,255,0.02), transparent);backdrop-filter:blur(4px)}
-    .brand{display:flex;gap:12px;align-items:center}
-    .logo{font-weight:800;color:var(--accent);font-size:20px}
-    .top-stats{display:flex;gap:18px;align-items:center}
+    body {margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;background:linear-gradient(180deg,#071021,#0b1220);color:#fff}
+    .center{display:flex;align-items:center;justify-content:center}
+    .login-container{height:100vh}
+    .login-box{background:rgba(255,255,255,0.03);padding:28px;border-radius:12px;margin:20px;box-shadow:0 6px 30px rgba(0,0,0,0.6)}
+    input{width:260px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#fff;margin:8px 0}
+    .btn{background:#e50914;border:none;padding:10px 14px;border-radius:8px;color:#fff;cursor:pointer}
+    .btn:disabled{opacity:0.6;cursor:not-allowed}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.02)}
+    .brand{font-weight:700;color:#e50914}
+    .stats{display:flex;gap:18px;align-items:center}
     .stat{display:flex;flex-direction:column;align-items:flex-end}
     .stat .num{font-size:20px;font-weight:700}
-    .stat .label{font-size:12px;color:var(--muted)}
-
-    /* Layout */
-    .main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px}
-    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
-
-    /* Left */
-    .left .profile{display:flex;align-items:center;gap:12px}
-    .avatar{width:48px;height:48px;border-radius:8px;background:#111;display:flex;align-items:center;justify-content:center;font-weight:700}
-    .users{margin-top:12px;max-height:56vh;overflow:auto}
-    .user-row{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;margin-bottom:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.008))}
-    .user-row .meta{font-size:12px;color:var(--muted)}
-
-    /* Right */
-    #map{width:100%;height:320px;border-radius:8px;overflow:hidden}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th,td{padding:10px;border-bottom:1px dashed rgba(255,255,255,0.03);font-size:13px}
-    th{color:var(--muted);font-size:12px;text-transform:uppercase}
-
-    /* Footer / controls */
-    .controls{display:flex;gap:10px;align-items:center;margin-top:12px}
-    .btn{padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#fff;cursor:pointer}
-
-    /* 3D canvas overlay */
-    canvas#threeCanvas{position:fixed;right:18px;bottom:18px;width:260px;height:160px;opacity:0.95;border-radius:12px;z-index:5;pointer-events:none}
-
-    /* Auth modal */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:50}
-    .modal{width:420px;background:#07122a;padding:20px;border-radius:12px;border:1px solid rgba(255,255,255,0.04)}
-    .modal h2{margin-bottom:8px}
-    .input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#02040a;color:#fff;margin-bottom:8px}
-
-    /* Banner */
-    .banner{padding:10px;background:#3b2e2e;color:#fff;text-align:center;border-radius:8px;margin:12px}
-
-    @media (max-width:900px){.main{grid-template-columns:1fr}.topbar{flex-direction:column;gap:8px}}
+    .main{display:grid;grid-template-columns:320px 1fr;gap:18px;padding:18px}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+    .users{max-height:64vh;overflow:auto}
+    .user-row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(0,0,0,0.2)}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:10px;border-bottom:1px dashed rgba(255,255,255,0.04);font-size:13px;text-align:left}
+    th{color:#aab0b6;font-size:12px;text-transform:uppercase}
+    .banner{padding:10px;background:#ffcccb;color:#550000;border-radius:8px;margin:12px}
+    footer{padding:12px;text-align:center;color:#9aa0a6}
+    @media(max-width:900px){.main{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="brand"><div class="logo">MyFlix Admin</div><div class="muted">Dashboard</div></div>
-      <div class="top-stats">
+  <div id="banner"></div>
+
+  <div id="loginPage" class="center login-container">
+    <div class="login-box center" style="flex-direction:column">
+      <h2>Admin Sign In</h2>
+      <input id="email" type="email" placeholder="Admin email" />
+      <input id="password" type="password" placeholder="Password" />
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" id="signInBtn">Sign In</button>
+        <button class="btn" id="demoBtn">Demo (no Firebase)</button>
+      </div>
+      <p id="loginError" style="color:#ff8b8b;margin-top:8px"></p>
+      <p style="color:#9aa0a6;margin-top:8px;font-size:13px">Tip: if you haven't set Firebase config, use Demo to test UI locally.</p>
+    </div>
+  </div>
+
+  <div id="dashboardPage" style="display:none">
+    <header>
+      <div class="brand">MyFlix Admin</div>
+      <div class="stats">
         <div class="stat"><div class="num" id="liveCount">0</div><div class="label">Live viewers</div></div>
         <div class="stat"><div class="num" id="totalCount">0</div><div class="label">Total users</div></div>
         <div id="adminArea"></div>
       </div>
-    </div>
+    </header>
 
     <div class="main">
-      <div class="panel left">
-        <div class="profile">
-          <div class="avatar" id="adminAvatar">A</div>
-          <div>
-            <div id="adminName" style="font-weight:700">Not signed in</div>
-            <div style="font-size:12px;color:var(--muted)" id="adminEmail">Please sign in</div>
-          </div>
-        </div>
-
-        <div style="margin-top:12px" class="card-title">Connected Users</div>
-        <div class="users" id="usersList">No users</div>
+      <div class="panel">
+        <h3>Connected Users</h3>
+        <div class="users" id="usersList"><p style="color:#9aa0a6">No users yet</p></div>
       </div>
 
-      <div class="panel right">
-        <div class="card-title">Live Map & Accounts</div>
-        <div id="map"></div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-          <div style="font-size:13px;color:var(--muted)">Users table (realtime)</div>
-          <div class="controls"><button class="btn" id="refreshBtn">Refresh</button><button class="btn" id="signOutBtn" style="display:none">Sign out</button></div>
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3>User Accounts (Realtime)</h3>
+          <div><button class="btn" id="refreshBtn">Refresh</button><button class="btn" id="logoutBtn" style="margin-left:8px">Logout</button></div>
         </div>
 
         <table>
-          <thead><tr><th>Name / Email</th><th>Last Seen</th><th>Online</th><th>Coords</th><th>Action</th></tr></thead>
-          <tbody id="accountsTable"><tr><td colspan="5">No data</td></tr></tbody>
+          <thead><tr><th>Name / Email</th><th>Last Seen</th><th>Online</th><th>Action</th></tr></thead>
+          <tbody id="accountsTable"><tr><td colspan="4">No data</td></tr></tbody>
         </table>
       </div>
     </div>
 
-    <!-- 3D preview canvas (decorative) -->
-    <canvas id="threeCanvas"></canvas>
-
-    <!-- Auth modal -->
-    <div class="modal-backdrop" id="authModal">
-      <div class="modal">
-        <h2>Admin Sign In</h2>
-        <input class="input" id="email" placeholder="Email" type="email">
-        <input class="input" id="password" placeholder="Password" type="password">
-        <div style="display:flex;gap:8px;margin-top:6px">
-          <button class="btn" id="emailSignIn">Sign In</button>
-          <button class="btn" id="closeAuth">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="bannerContainer"></div>
-
+    <footer>MyFlix Admin Panel — Demo / Production ready. Secure your DB rules for production.</footer>
   </div>
 
-  <!-- libs -->
+  <!-- Firebase SDKs (compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 
   <script>
-    /***************
-      CONFIG - REQUIRED
-    ****************/
-    // Replace with your Firebase project's config
+    // ---------------- CONFIG ----------------
+    // Replace these with your Firebase project values for production
     const firebaseConfig = {
       apiKey: "AIzaSyDwJnXHz89BExap-LPyX1xEc3dRD7ar5a4",
       authDomain: "neat-pagoda-412310.firebaseapp.com",
@@ -159,175 +95,189 @@
       appId: "1:606835868303:web:47fb7d7cd8a5db089466fa"
     };
 
-    // Admins allowed: put your admin email(s) here OR your admin UID(s)
-    const ADMIN_EMAILS = ['your-admin-email@example.com']; // change me
-    const ADMIN_UIDS = []; // optionally add UID(s) for stronger security
+    // Admin allowed emails / UIDs
+    const ADMIN_EMAILS = ['your-admin@example.com'];
+    const ADMIN_UIDS = []; // prefer adding your admin UID(s) here for stronger security
 
-    /***************
-      End config
-    ****************/
-
-    // util: config validation
-    function isConfigValid(cfg){
-      const keys = ['apiKey','authDomain','projectId','databaseURL','appId'];
-      return keys.every(k=>cfg[k] && !String(cfg[k]).includes('REPLACE'));
+    // ---------------- Helpers ----------------
+    function isConfigPopulated(cfg){
+      if(!cfg) return false;
+      return ['apiKey','authDomain','databaseURL','projectId','appId'].every(k=>cfg[k] && !String(cfg[k]).includes('REPLACE'));
     }
 
-    const bannerContainer = document.getElementById('bannerContainer');
-    function showBanner(html){ bannerContainer.innerHTML = '<div class="banner">'+html+'</div>'; }
+    function showBanner(msg){ document.getElementById('banner').innerHTML = '<div class="banner">'+msg+'</div>'; }
+    function clearBanner(){ document.getElementById('banner').innerHTML=''; }
 
-    let firebaseInitialized = false;
-    try{
-      if(isConfigValid(firebaseConfig)){
+    // ---------------- Init Firebase (safely) ----------------
+    let firebaseInitialized = false; let auth = null; let db = null; let presenceRef = null;
+    if(isConfigPopulated(firebaseConfig)){
+      try{
         firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.database();
+        presenceRef = db.ref('presence');
         firebaseInitialized = true;
         console.log('Firebase initialized');
-      } else {
-        showBanner('Firebase not configured — replace <strong>firebaseConfig</strong> in the HTML. Running in demo mode.');
+      } catch(e){
+        console.error('Firebase init error:', e);
+        showBanner('Firebase initialization error — running in demo mode. Check console for details.');
       }
-    } catch(err){ console.error('Firebase init err', err); showBanner('Firebase init error — check console'); }
+    } else {
+      showBanner('Firebase config not set. Running in demo mode. Replace firebaseConfig to enable live data.');
+    }
 
-    const auth = firebaseInitialized ? firebase.auth() : null;
-    const db = firebaseInitialized ? firebase.database() : null;
-    let presenceRef = db ? db.ref('presence') : null;
+    // ---------------- UI refs ----------------
+    const loginPage = document.getElementById('loginPage');
+    const dashboardPage = document.getElementById('dashboardPage');
+    const signInBtn = document.getElementById('signInBtn');
+    const demoBtn = document.getElementById('demoBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const liveCountEl = document.getElementById('liveCount');
+    const totalCountEl = document.getElementById('totalCount');
+    const usersList = document.getElementById('usersList');
+    const accountsTable = document.getElementById('accountsTable');
+    const loginError = document.getElementById('loginError');
 
-    // Leaflet map
-    let map = null; let markers = {};
-    function initMap(){
+    // ---------------- Auth helpers ----------------
+    function isAdmin(user){
+      if(!user) return false;
+      if(ADMIN_UIDS.includes(user.uid)) return true;
+      if(ADMIN_EMAILS.includes(user.email)) return true;
+      return false;
+    }
+
+    function showDashboardFor(user){
+      loginPage.style.display='none'; dashboardPage.style.display='block'; clearBanner();
+      renderAdminInfo(user);
+      attachPresenceListeners();
+    }
+
+    function renderAdminInfo(user){
+      const adminArea = document.getElementById('adminArea');
+      if(!user){ adminArea.innerHTML = '<button class="btn" id="openLogin">Sign in</button>'; document.getElementById('openLogin')?.addEventListener('click', ()=>{ loginPage.style.display='flex'; dashboardPage.style.display='none'; }); return; }
+      adminArea.innerHTML = `<div style="display:flex;gap:12px;align-items:center"><div style="font-weight:700">${user.email}</div></div>`;
+    }
+
+    // ---------------- Sign in flow ----------------
+    signInBtn.addEventListener('click', async ()=>{
+      loginError.textContent='';
+      const email = document.getElementById('email').value.trim();
+      const pw = document.getElementById('password').value;
+      if(!email || !pw){ loginError.textContent = 'Enter email and password'; return; }
+      if(!auth){ loginError.textContent = 'Firebase not configured. Use Demo mode or set firebaseConfig.'; return; }
       try{
-        map = L.map('map', {zoomControl:true, attributionControl:false}).setView([20.5937,78.9629], 4);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
-      } catch(e){ console.error('Map init err', e); document.getElementById('map').innerText = 'Map failed to load'; }
-    }
-    initMap();
-
-    function setMarker(uid, user){
-      if(!map) return;
-      if(!(user && user.coords && typeof user.coords.lat === 'number')){
-        if(markers[uid]){ map.removeLayer(markers[uid]); delete markers[uid]; }
-        return;
+        const cred = await auth.signInWithEmailAndPassword(email,pw);
+        const user = cred.user;
+        if(isAdmin(user)){
+          showDashboardFor(user);
+        } else {
+          loginError.textContent = 'Access denied: user is not an admin';
+          await auth.signOut();
+        }
+      } catch(e){
+        console.error('Sign-in error', e);
+        loginError.textContent = e.message || 'Sign-in failed';
       }
-      const latlng = [user.coords.lat, user.coords.lon];
-      const popup = `<div style="color:#000"><strong>${(user.displayName||user.email||'Unknown')}</strong><br>${user.email||''}<br>Status: ${user.isOnline? 'Online':'Offline'}<br>Last: ${user.lastSeen? new Date(user.lastSeen).toLocaleString(): '—'}</div>`;
-      if(markers[uid]){ markers[uid].setLatLng(latlng).setPopupContent(popup); }
-      else { const m = L.circleMarker(latlng,{radius:8,fillOpacity:0.9,color:user.isOnline? '#32d74b':'#8b8f98'}).addTo(map); m.bindPopup(popup); markers[uid]=m; }
+    });
+
+    demoBtn.addEventListener('click', ()=>{
+      // Demo mode: show dashboard with mock data
+      loginPage.style.display='none'; dashboardPage.style.display='block';
+      clearBanner(); renderAdminInfo(null); populateMockData();
+    });
+
+    logoutBtn.addEventListener('click', async ()=>{ if(auth) await auth.signOut(); loginPage.style.display='flex'; dashboardPage.style.display='none'; clearPresenceUI(); });
+    refreshBtn.addEventListener('click', ()=>{ if(firebaseInitialized) attachPresenceListeners(); else populateMockData(); });
+
+    // ---------------- Presence & UI updates ----------------
+    let presenceListenerAttached = false;
+    function attachPresenceListeners(){
+      if(!firebaseInitialized || !presenceRef){ populateMockData(); return; }
+      try{
+        // detach existing
+        if(presenceListenerAttached){ try{ presenceRef.off(); }catch(e){} }
+        presenceRef.on('value', snap=>{
+          const data = snap.val() || {};
+          renderPresence(data);
+        }, err=>{ console.error('Realtime read error', err); showBanner('Realtime DB error — see console for details.'); });
+        presenceListenerAttached = true;
+      } catch(e){ console.error('attachPresenceListeners caught', e); showBanner('Unable to attach realtime listeners.'); populateMockData(); }
     }
 
-    function updateMarkers(data){
-      if(!map) return;
+    function renderPresence(data){
+      // update counts
       const uids = Object.keys(data||{});
-      const bounds = [];
-      // remove outdated
-      Object.keys(markers).forEach(uid=>{ if(!uids.includes(uid)){ map.removeLayer(markers[uid]); delete markers[uid]; }});
-      uids.forEach(uid=>{ const u=data[uid]; if(u && u.coords && typeof u.coords.lat === 'number'){ bounds.push([u.coords.lat,u.coords.lon]); setMarker(uid,u);} });
-      if(bounds.length) try{ map.fitBounds(bounds, {padding:[30,30]}); } catch(e){}
+      const live = uids.filter(uid=> data[uid] && data[uid].isOnline).length;
+      liveCountEl.textContent = live;
+      totalCountEl.textContent = uids.length;
+
+      // left list
+      usersList.innerHTML = '';
+      uids.sort((a,b)=> (data[b].lastSeen||0)-(data[a].lastSeen||0));
+      if(uids.length===0){ usersList.innerHTML = '<p style="color:#9aa0a6">No users</p>'; }
+      uids.forEach(uid=>{
+        const u = data[uid] || {};
+        const row = document.createElement('div'); row.className='user-row';
+        row.innerHTML = `<div><strong>${u.displayName||u.email||'Unknown'}</strong><div style="font-size:13px;color:#9aa0a6">${u.email||''}</div></div><div style="text-align:right"><div style="font-size:13px;color:${u.isOnline? '#8ef29a':'#9aa0a6'}">${u.isOnline? 'Online':'Offline'}</div><div style="font-size:12px;color:#9aa0a6">${u.lastSeen? new Date(u.lastSeen).toLocaleString() : ''}</div></div>`;
+        usersList.appendChild(row);
+      });
+
+      // accounts table
+      const tbody = accountsTable;
+      tbody.innerHTML = '';
+      if(uids.length===0){ tbody.innerHTML = '<tr><td colspan="4">No users</td></tr>'; return; }
+      uids.forEach(uid=>{
+        const u = data[uid] || {};
+        const last = u.lastSeen? new Date(u.lastSeen).toLocaleString() : '—';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.displayName||''}<div style="font-size:12px;color:#9aa0a6">${u.email||''}</div></td><td>${last}</td><td>${u.isOnline? 'Yes':'No'}</td><td><button class="btn forceSign" data-uid="${uid}">Force signout</button></td>`;
+        tbody.appendChild(tr);
+      });
+
+      // attach force-sign handlers
+      tbody.querySelectorAll('button.forceSign').forEach(btn=>{
+        btn.onclick = async ()=>{
+          const uid = btn.dataset.uid;
+          if(!confirm('Force signout for '+uid+'?')) return;
+          if(!firebaseInitialized){ alert('Realtime DB not configured'); return; }
+          try{ await db.ref('forceSignout/'+uid).set({askedBy: auth.currentUser? auth.currentUser.uid : 'admin', at: Date.now()}); alert('Signout request sent'); }
+          catch(e){ console.error('Force signout failed', e); alert('Failed to send signout request'); }
+        };
+      });
     }
 
-    // 3D canvas (decorative)
-    const threeCanvas = document.getElementById('threeCanvas');
-    const renderer = new THREE.WebGLRenderer({canvas:threeCanvas,antialias:true,alpha:true}); renderer.setPixelRatio(window.devicePixelRatio||1);
-    const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(45,260/160,0.1,1000); camera.position.z=60;
-    const pg = new THREE.Group(); scene.add(pg); const light = new THREE.DirectionalLight(0xffffff,0.8); light.position.set(0,1,1); scene.add(light); scene.add(new THREE.AmbientLight(0xffffff,0.12));
-    const geom = new THREE.BoxGeometry(10,6,1.2); const mat = new THREE.MeshStandardMaterial({color:0x0b1020,metalness:0.2,roughness:0.6}); for(let i=0;i<3;i++){ const m=new THREE.Mesh(geom,mat); m.position.x=(i-1)*12; m.position.y=Math.sin(i)*2; pg.add(m);} function threeResize(){ renderer.setSize(260,160); camera.aspect=260/160; camera.updateProjectionMatrix(); } threeResize(); let ta=0; function threeLoop(){ ta+=0.01; pg.rotation.y+=0.01; renderer.render(scene,camera); requestAnimationFrame(threeLoop);} threeLoop();
+    function clearPresenceUI(){ liveCountEl.textContent='0'; totalCountEl.textContent='0'; usersList.innerHTML='<p style="color:#9aa0a6">Sign in to view presence</p>'; accountsTable.innerHTML='<tr><td colspan="4">Sign in to view accounts</td></tr>'; }
 
-    // UI elements
-    const adminArea = document.getElementById('adminArea'); const adminAvatar=document.getElementById('adminAvatar'); const adminName=document.getElementById('adminName'); const adminEmail=document.getElementById('adminEmail');
-    const usersList=document.getElementById('usersList'); const accountsTable=document.getElementById('accountsTable'); const liveCountEl=document.getElementById('liveCount'); const totalCountEl=document.getElementById('totalCount');
-    const signOutBtn=document.getElementById('signOutBtn'); const authModal=document.getElementById('authModal'); const emailSignIn=document.getElementById('emailSignIn'); const closeAuth=document.getElementById('closeAuth'); const emailInput=document.getElementById('email'); const passwordInput=document.getElementById('password');
-
-    function showAuthModal(){ authModal.style.display='flex'; }
-    function hideAuthModal(){ authModal.style.display='none'; }
-    closeAuth.addEventListener('click', hideAuthModal);
-
-    function renderAdminUI(user){
-      if(user){
-        adminAvatar.textContent = (user.displayName||user.email||'A').charAt(0).toUpperCase();
-        adminName.textContent = user.displayName || 'Admin'; adminEmail.textContent = user.email || '';
-        adminArea.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><div style="font-size:13px">${user.email}</div><button class="btn" id="logoutNow">Logout</button></div>`;
-        document.getElementById('logoutNow').addEventListener('click', ()=>{ if(auth) auth.signOut(); });
-        signOutBtn.style.display='inline-block';
-      } else { adminAvatar.textContent='A'; adminName.textContent='Not signed in'; adminEmail.textContent='Please sign in'; adminArea.innerHTML=`<button class="btn" id="openSignIn">Admin Sign In</button>`; document.getElementById('openSignIn').addEventListener('click', showAuthModal); signOutBtn.style.display='none'; }
+    // ---------------- Mock data for testing ----------------
+    function populateMockData(){
+      const now = Date.now();
+      const mock = {
+        u1:{displayName:'Alice',email:'alice@example.com',isOnline:true,lastSeen: now - 30*1000},
+        u2:{displayName:'Bob',email:'bob@example.com',isOnline:false,lastSeen: now - 15*60*1000},
+        u3:{displayName:'Cara',email:'cara@example.com',isOnline:true,lastSeen: now - 10*1000}
+      };
+      renderPresence(mock);
     }
 
-    // sign in flow
-    if(emailSignIn){ emailSignIn.addEventListener('click', ()=>{
-      const email = emailInput.value.trim(); const pw = passwordInput.value;
-      if(!email||!pw){ alert('Enter email and password'); return; }
-      if(!auth){ alert('Firebase not configured'); return; }
-      auth.signInWithEmailAndPassword(email,pw).catch(err=>alert('Sign in failed: '+err.message));
-    }); }
-
-    // admin-only check
-    function isAdminUser(user){ if(!user) return false; if(ADMIN_UIDS.includes(user.uid)) return true; if(ADMIN_EMAILS.includes(user.email)) return true; return false; }
-
-    function clearPresenceUI(){ usersList.innerHTML='<div style="color:var(--muted)">Sign in to view presence</div>'; accountsTable.innerHTML='<tr><td colspan="5">Sign in to view accounts</td></tr>'; liveCountEl.textContent='0'; totalCountEl.textContent='0'; updateMarkers({}); }
-
-    function attachPresence(){
-      if(!presenceRef || typeof presenceRef.on!=='function'){ clearPresenceUI(); return; }
-      presenceRef.on('value', snap=>{
-        const data = snap.val() || {}; const uids = Object.keys(data || {});
-        const liveCount = uids.filter(uid=> (data[uid] && data[uid].isOnline)).length; liveCountEl.textContent = liveCount; totalCountEl.textContent = uids.length;
-        updateMarkers(data);
-        // left list
-        usersList.innerHTML=''; uids.sort((a,b)=> (data[b].lastSeen||0)-(data[a].lastSeen||0)); uids.forEach(uid=>{ const u=data[uid]||{}; const div=document.createElement('div'); div.className='user-row'; div.innerHTML=`<div class="avatar">${(u.displayName||u.email||'U').charAt(0).toUpperCase()}</div><div><div style="font-weight:700">${u.displayName||'Unknown'}</div><div class="meta">${u.email||''} • ${u.city||''}</div></div><div style="margin-left:auto;text-align:right"><div style="font-size:12px;color:var(--muted)">${u.isOnline? 'Online':'Offline'}</div><div style="font-size:12px;color:var(--muted)">${u.lastSeen? new Date(u.lastSeen).toLocaleString() : ''}</div></div>`; usersList.appendChild(div); });
-        // table
-        if(uids.length===0){ accountsTable.innerHTML='<tr><td colspan="5">No users</td></tr>'; return; }
-        accountsTable.innerHTML=''; uids.forEach(uid=>{ const u=data[uid]||{}; const last = u.lastSeen? new Date(u.lastSeen).toLocaleString() : '—'; const coords = (u.coords && typeof u.coords.lat==='number')? `${u.coords.lat.toFixed(4)}, ${u.coords.lon.toFixed(4)}` : '-'; const tr=document.createElement('tr'); tr.innerHTML=`<td>${u.displayName||''}<div style="font-size:12px;color:var(--muted)">${u.email||''}</div></td><td>${last}</td><td>${u.isOnline? 'Yes':'No'}</td><td>${coords}</td><td><button class="btn force" data-uid="${uid}">Force Signout</button></td>`; accountsTable.appendChild(tr); });
-        // attach force handlers
-        accountsTable.querySelectorAll('button.force').forEach(btn=>{ btn.onclick=()=>{ const uid=btn.dataset.uid; if(!confirm('Force signout '+uid+'?')) return; if(!db){ alert('DB not configured'); return; } db.ref('forceSignout/'+uid).set({askedBy: auth.currentUser? auth.currentUser.uid : 'admin', at: Date.now()}).then(()=>alert('Signout request sent')).catch(e=>alert('Failed: '+e.message)); }; });
-      }, err=>{ console.error('presence on error', err); showBanner('Realtime DB error — check console'); });
-    }
-
-    // auth observer
+    // ---------------- Auth observer (if firebase available) ----------------
     if(auth){
       auth.onAuthStateChanged(user=>{
-        if(user && isAdminUser(user)){
-          hideAuthModal(); renderAdminUI(user); attachPresence();
-        } else if(user && !isAdminUser(user)){
-          // not allowed
-          alert('This account is not authorized as admin. Signing out.'); auth.signOut(); renderAdminUI(null); clearPresenceUI();
-        } else {
-          renderAdminUI(null); clearPresenceUI();
-        }
+        if(user){
+          if(isAdmin(user)){
+            showDashboardFor(user);
+          } else { // not admin
+            alert('Account is not authorized as admin.'); auth.signOut(); renderAdminInfo(null); clearPresenceUI(); loginPage.style.display='flex'; dashboardPage.style.display='none';
+          }
+        } else { renderAdminInfo(null); clearPresenceUI(); loginPage.style.display='flex'; dashboardPage.style.display='none'; }
       });
     } else {
-      // no firebase - demo mode
-      renderAdminUI(null); clearPresenceUI(); showBanner('Firebase not configured — demo mode. Replace firebaseConfig to enable live features.');
+      // no firebase - start in demo state (show login page)
+      loginPage.style.display='flex'; dashboardPage.style.display='none';
     }
 
-    // refresh
-    document.getElementById('refreshBtn').addEventListener('click', ()=>{ if(presenceRef && typeof presenceRef.once==='function'){ presenceRef.once('value').then(s=>{ attachPresence(); }); } else alert('Realtime not available'); });
-    signOutBtn.addEventListener('click', ()=>{ if(auth) auth.signOut(); });
-
-    // initial mock markers if no firebase
-    if(!db){ const mock={ u1:{displayName:'Alice',email:'alice@example.com',isOnline:true,lastSeen:Date.now()-5000,coords:{lat:12.9716,lon:77.5946},city:'Bengaluru'}, u2:{displayName:'Bob',email:'bob@example.com',isOnline:false,lastSeen:Date.now()-600000,coords:{lat:28.7041,lon:77.1025},city:'Delhi'} }; updateMarkers(mock); }
-
-    // expose for debugging
-    window._admin = { auth, db, presenceRef };
-
-    /*****
-      Client site integration example (main site): write presence + coords to /presence/{uid}
-    *****
-    // Example (copy to your user-facing site after sign-in):
-    /*
-      const uid = user.uid;
-      const userRef = firebase.database().ref('presence/' + uid);
-      function writePresence(coords){
-        const payload = {
-          displayName: user.displayName || user.email || '',
-          email: user.email || '',
-          isOnline: true,
-          lastSeen: Date.now(),
-          coords: coords || null
-        };
-        userRef.set(payload);
-        userRef.onDisconnect().update({isOnline:false, lastSeen: Date.now()});
-        // Also listen for forceSignout/{uid} and sign out if exists
-        firebase.database().ref('forceSignout/'+uid).on('value', snap=>{ if(snap.exists()){ alert('You were signed out by admin'); auth.signOut(); } });
-      }
-      if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(pos=>{ writePresence({lat:pos.coords.latitude, lon:pos.coords.longitude}); }, err=>{ writePresence(null); }); } else { writePresence(null); }
-    */
-
+    // Expose for debugging
+    window._adminPanel = { firebaseInitialized, auth, db, presenceRef };
   </script>
 </body>
 </html>
