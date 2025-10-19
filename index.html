@@ -1,0 +1,260 @@
+<!doctype html>
+<!--
+  Netflix-style single-file template (HTML + CSS + JS)
+  - Authentication: Email/Password, Google, Facebook (Firebase Auth)
+  - Replace the firebaseConfig object with your Firebase project's config
+  - Enable Email/Password, Google, and Facebook providers in Firebase Console
+  - For Facebook auth you must also configure a Facebook app and set OAuth redirect URIs
+  - This is a starter template (no backend). Videos use public sample links.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyFlix - Demo</title>
+  <style>
+    /* Basic reset */
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter, system-ui, sans-serif;background:#141414;color:#e5e5e5;min-height:100vh}
+    a{color:inherit}
+
+    /* Top bar */
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;background:linear-gradient(180deg, rgba(20,20,20,0.6), rgba(20,20,20,0));position:sticky;top:0;z-index:30}
+    .logo{font-weight:800;font-size:20px;color:#e50914}
+    .actions{display:flex;align-items:center;gap:12px}
+    .btn{background:transparent;border:1px solid rgba(255,255,255,0.08);padding:8px 12px;border-radius:6px;cursor:pointer}
+
+    /* Main layout */
+    .container{padding:28px 32px}
+    .hero{display:flex;gap:24px;align-items:center;margin-bottom:28px}
+    .hero .poster{width:220px;height:120px;background:#222;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px}
+    .hero .meta{flex:1}
+    .meta h1{font-size:28px;margin-bottom:8px}
+    .meta p{color:#bbb}
+
+    /* Grid */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+    .card{background:#111;border-radius:8px;overflow:hidden;cursor:pointer;transition:transform .18s ease, box-shadow .18s ease}
+    .card:hover{transform:translateY(-6px);box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+    .card video{width:100%;height:110px;object-fit:cover;background:#000}
+    .card .info{padding:10px}
+    .card .title{font-size:14px}
+    .card .sub{color:#999;font-size:12px;margin-top:6px}
+
+    /* Profile dropdown */
+    .profile{display:flex;gap:8px;align-items:center}
+    .avatar{width:36px;height:36px;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center}
+    .dropdown{position:absolute;right:32px;top:64px;background:#111;border:1px solid rgba(255,255,255,0.05);padding:12px;border-radius:8px;display:none}
+
+    /* Modal (auth) */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:60}
+    .modal{width:420px;background:#0f0f0f;border-radius:10px;padding:20px;border:1px solid rgba(255,255,255,0.04)}
+    .modal h2{margin-bottom:6px}
+    .form{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+    .input{padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:#0b0b0b;color:#fff}
+    .socials{display:flex;gap:8px;margin-top:8px}
+
+    /* Player overlay */
+    .player-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:80}
+    .player{width:90%;max-width:1000px;background:#000;padding:12px;border-radius:8px}
+    .player video{width:100%;height:540px;background:#000}
+
+    /* small screens */
+    @media (max-width:600px){.hero{flex-direction:column}.player video{height:250px}}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo">MyFlix</div>
+    <div class="actions">
+      <div class="profile" id="profileArea">
+        <button class="btn" id="loginBtn">Login / Register</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="container">
+    <section class="hero">
+      <div class="poster">Poster</div>
+      <div class="meta">
+        <h1>Welcome to MyFlix</h1>
+        <p>Demo streaming UI. Sign in to see your profile and watch videos.</p>
+      </div>
+    </section>
+
+    <section>
+      <h3 style="margin-bottom:12px">Trending</h3>
+      <div class="grid" id="videoGrid">
+        <!-- cards injected by JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Auth Modal -->
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal">
+      <h2 id="modalTitle">Sign In</h2>
+      <div class="form" id="authForm">
+        <input class="input" id="email" placeholder="Email" type="email">
+        <input class="input" id="password" placeholder="Password" type="password">
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn" id="emailSignIn">Sign In</button>
+          <button class="btn" id="emailRegister">Register</button>
+        </div>
+        <div style="margin-top:8px;color:#aaa;font-size:13px">Or continue with</div>
+        <div class="socials">
+          <button class="btn" id="googleSign">Google</button>
+          <button class="btn" id="facebookSign">Facebook</button>
+        </div>
+        <div style="margin-top:8px;text-align:right"><button class="btn" id="closeAuth">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player -->
+  <div class="player-backdrop" id="playerBackdrop">
+    <div class="player">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div id="playerTitle"></div>
+        <div><button class="btn" id="closePlayer">Close</button></div>
+      </div>
+      <video id="playerVideo" controls src="" ></video>
+    </div>
+  </div>
+
+  <!-- Firebase App + Auth (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script>
+    // ======= CONFIG - replace with your firebase project's config =======
+    const firebaseConfig = {
+      apiKey: "REPLACE_WITH_YOUR_API_KEY",
+      authDomain: "REPLACE_WITH_YOUR_PROJECT.firebaseapp.com",
+      projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+      appId: "REPLACE_WITH_YOUR_APP_ID",
+    };
+    // ====================================================================
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // Providers
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+    const facebookProvider = new firebase.auth.FacebookAuthProvider();
+
+    // UI elements
+    const loginBtn = document.getElementById('loginBtn');
+    const authModal = document.getElementById('authModal');
+    const closeAuth = document.getElementById('closeAuth');
+    const emailSignIn = document.getElementById('emailSignIn');
+    const emailRegister = document.getElementById('emailRegister');
+    const googleSign = document.getElementById('googleSign');
+    const facebookSign = document.getElementById('facebookSign');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const profileArea = document.getElementById('profileArea');
+
+    const playerBackdrop = document.getElementById('playerBackdrop');
+    const playerVideo = document.getElementById('playerVideo');
+    const playerTitle = document.getElementById('playerTitle');
+    const closePlayer = document.getElementById('closePlayer');
+
+    // Sample videos list
+    const videos = [
+      {id:1,title:'Big Buck Bunny',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',desc:'Animated short'},
+      {id:2,title:'Sintel',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',desc:'Animated short'},
+      {id:3,title:'Tears of Steel',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',desc:'Sci-fi short'},
+      {id:4,title:'For Bigger Blazes',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',desc:'Trailer sample'}
+    ];
+
+    function renderGrid(){
+      const grid = document.getElementById('videoGrid');
+      grid.innerHTML = '';
+      videos.forEach(v=>{
+        const card = document.createElement('div');card.className='card';
+        card.innerHTML = `
+          <video src="${v.src}" muted preload="metadata"></video>
+          <div class="info"><div class="title">${v.title}</div><div class="sub">${v.desc}</div></div>
+        `;
+        card.addEventListener('click',()=>openPlayer(v));
+        grid.appendChild(card);
+      });
+    }
+
+    function openPlayer(v){
+      playerTitle.textContent = v.title;
+      playerVideo.src = v.src;
+      playerBackdrop.style.display = 'flex';
+      playerVideo.play().catch(()=>{});
+    }
+    closePlayer.addEventListener('click',()=>{playerVideo.pause();playerBackdrop.style.display='none';playerVideo.src='';});
+
+    // Auth modal handlers
+    loginBtn.addEventListener('click',()=>{authModal.style.display='flex'});
+    closeAuth.addEventListener('click',()=>{authModal.style.display='none'});
+
+    // Email sign in
+    emailSignIn.addEventListener('click',async()=>{
+      const email=emailInput.value.trim();const pw=passwordInput.value;
+      try{await auth.signInWithEmailAndPassword(email,pw);authModal.style.display='none';}
+      catch(e){alert('Sign in error: '+e.message)}
+    });
+
+    // Email register
+    emailRegister.addEventListener('click',async()=>{
+      const email=emailInput.value.trim();const pw=passwordInput.value;
+      try{await auth.createUserWithEmailAndPassword(email,pw);authModal.style.display='none';}
+      catch(e){alert('Register error: '+e.message)}
+    });
+
+    // Google
+    googleSign.addEventListener('click',async()=>{
+      try{await auth.signInWithPopup(googleProvider);authModal.style.display='none';}
+      catch(e){alert('Google sign in error: '+e.message)}
+    });
+
+    // Facebook
+    facebookSign.addEventListener('click',async()=>{
+      try{await auth.signInWithPopup(facebookProvider);authModal.style.display='none';}
+      catch(e){alert('Facebook sign in error: '+e.message)}
+    });
+
+    // Observe auth state
+    auth.onAuthStateChanged(user=>{
+      if(user){
+        // show profile
+        profileArea.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="avatar">${(user.displayName||user.email||'U').charAt(0).toUpperCase()}</div>
+            <div style="display:flex;flex-direction:column">
+              <div style="font-weight:600">${user.displayName||user.email}</div>
+              <div style="font-size:12px;color:#aaa">${user.emailVerified? 'Verified' : 'Not verified'}</div>
+            </div>
+            <div style="margin-left:12px"><button class="btn" id="signOutBtn">Logout</button></div>
+          </div>
+        `;
+        document.getElementById('signOutBtn').addEventListener('click',()=>auth.signOut());
+
+      } else {
+        // show login button
+        profileArea.innerHTML = `<button class="btn" id="loginBtn2">Login / Register</button>`;
+        document.getElementById('loginBtn2').addEventListener('click',()=>{authModal.style.display='flex'});
+      }
+    });
+
+    // Initial render
+    renderGrid();
+
+    // Small nicety: play preview when hover
+    document.addEventListener('mouseover',e=>{
+      const vid = e.target.closest('.card')?.querySelector('video');
+      if(vid){vid.play().catch(()=>{});}  
+    });
+    document.addEventListener('mouseout',e=>{
+      const vid = e.target.closest('.card')?.querySelector('video');
+      if(vid){vid.pause();vid.currentTime=0;}  
+    });
+
+  </script>
+</body>
+</html>
