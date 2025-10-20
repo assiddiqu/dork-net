@@ -1,116 +1,187 @@
-<!DOCTYPE html>
-<!-- Coding by CodingLab | www.codinglabweb.com-->
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title> Dork Net Login and Signup page </title>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dork Net</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter, system-ui, sans-serif;background:#141414;color:#e5e5e5;min-height:100vh}
+    .hidden{display:none!important}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;background:#000}
+    .logo{font-weight:800;font-size:22px;color:#e50914}
+    .btn{background:#e50914;border:none;color:#fff;padding:10px 16px;border-radius:6px;cursor:pointer}
+    .container{padding:28px 32px}
+    .card{background:#111;border-radius:8px;overflow:hidden;margin-bottom:14px;padding:10px}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center}
+    .modal-content{background:#0f0f0f;padding:20px;border-radius:8px;width:350px}
+    .input{width:100%;padding:10px;margin-top:10px;border-radius:6px;border:1px solid #333;background:#111;color:#fff}
+    .admin-panel{background:#0f0f0f;padding:20px;margin-top:20px;border-radius:8px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:8px;border-bottom:1px solid #333;text-align:left;font-size:14px}
+    th{color:#e50914}
+  </style>
+</head>
+<body>
+  <!-- LOGIN PAGE -->
+  <div id="loginPage" class="modal">
+    <div class="modal-content">
+      <h2>Login or Register</h2>
+      <input id="email" class="input" type="email" placeholder="Email">
+      <input id="password" class="input" type="password" placeholder="Password">
+      <button id="loginBtn" class="btn" style="margin-top:10px;">Login</button>
+      <button id="registerBtn" class="btn" style="background:#333;margin-top:10px;">Register</button>
+      <p id="status" style="margin-top:10px;color:#aaa;font-size:14px"></p>
+    </div>
+  </div>
 
-        <!-- CSS -->
-        <link rel="stylesheet" href="style.css">
-                
-        <!-- Boxicons CSS -->
-        <link href='https://unpkg.com/boxicons@2.1.2/css/boxicons.min.css' rel='stylesheet'>
-                        
-    </head>
-    <body>
-        <section class="container forms">
-            <div class="form login">
-                <div class="form-content">
-                    <header>Login</header>
-                    <form action="#">
-                        <div class="field input-field">
-                            <input type="email" placeholder="Email" class="input">
-                        </div>
+  <!-- MAIN SITE -->
+  <div id="mainSite" class="hidden">
+    <div class="topbar">
+      <div class="logo">Dork Net</div>
+      <div>
+        <span id="viewerCount" style="margin-right:10px;font-size:14px;color:#aaa;"></span>
+        <button id="logoutBtn" class="btn">Logout</button>
+      </div>
+    </div>
 
-                        <div class="field input-field">
-                            <input type="password" placeholder="Password" class="password">
-                            <i class='bx bx-hide eye-icon'></i>
-                        </div>
+    <div class="container">
+      <div class="card">Welcome to Dork Net 🎬</div>
+      <div class="card">Enjoy secure and verified access!</div>
 
-                        <div class="form-link">
-                            <a href="#" class="forgot-pass">Forgot password?</a>
-                        </div>
+      <!-- Admin Panel (only visible to admin Gmail) -->
+      <div id="adminPanel" class="admin-panel hidden">
+        <h3>👑 Admin Panel</h3>
+        <p>Realtime Users List:</p>
+        <table>
+          <thead><tr><th>Email</th><th>Verified</th><th>Status</th></tr></thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-                        <div class="field button-field">
-                            <button>Login</button>
-                        </div>
-                    </form>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-                    <div class="form-link">
-                        <span>Don't have an account? <a href="#" class="link signup-link">Signup</a></span>
-                    </div>
-                </div>
+  <script>
+    // ==== Firebase Config ====
+    const firebaseConfig = {
+      apiKey: "AIzaSyDwJnXHz89BExap-LPyX1xEc3dRD7ar5a4",
+      authDomain: "neat-pagoda-412310.firebaseapp.com",
+      databaseURL: "https://neat-pagoda-412310-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "neat-pagoda-412310",
+      appId: "1:606835868303:web:47fb7d7cd8a5db089466fa"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
 
-                <div class="line"></div>
+    const ADMIN_EMAIL = "zainkhan7518438417@gmail.com"; // Only this email sees admin panel
 
-                <div class="media-options">
-                    <a href="#" class="field facebook">
-                        <i class='bx bxl-facebook facebook-icon'></i>
-                        <span>Login with Facebook</span>
-                    </a>
-                </div>
+    const loginPage = document.getElementById('loginPage');
+    const mainSite = document.getElementById('mainSite');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const statusText = document.getElementById('status');
+    const viewerCount = document.getElementById('viewerCount');
+    const adminPanel = document.getElementById('adminPanel');
+    const usersTable = document.getElementById('usersTable');
 
-                <div class="media-options">
-                    <a href="#" class="field google">
-                        <img src="google.png" alt="" class="google-img">
-                        <span>Login with Google</span>
-                    </a>
-                </div>
+    // ===== Register new user =====
+    registerBtn.addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const pw = document.getElementById('password').value;
+      try {
+        const userCred = await auth.createUserWithEmailAndPassword(email, pw);
+        await userCred.user.sendEmailVerification();
+        await db.ref('users/' + userCred.user.uid).set({
+          email: email,
+          verified: false,
+          status: 'offline'
+        });
+        statusText.textContent = "Verification email sent! Please check your Gmail.";
+      } catch (err) {
+        statusText.textContent = err.message;
+      }
+    });
 
-            </div>
+    // ===== Login existing user =====
+    loginBtn.addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const pw = document.getElementById('password').value;
+      try {
+        const userCred = await auth.signInWithEmailAndPassword(email, pw);
+        if (!userCred.user.emailVerified) {
+          await auth.signOut();
+          alert("Please verify your email first!");
+          return;
+        }
+        await db.ref('users/' + userCred.user.uid).update({
+          verified: true,
+          status: 'online'
+        });
+        showMainSite();
+      } catch (err) {
+        statusText.textContent = err.message;
+      }
+    });
 
-            <!-- Signup Form -->
+    // ===== Logout =====
+    logoutBtn.addEventListener('click', async () => {
+      const user = auth.currentUser;
+      if (user) {
+        await db.ref('users/' + user.uid).update({ status: 'offline' });
+      }
+      await auth.signOut();
+      showLoginPage();
+    });
 
-            <div class="form signup">
-                <div class="form-content">
-                    <header>Signup</header>
-                    <form action="#">
-                        <div class="field input-field">
-                            <input type="email" placeholder="Email" class="input">
-                        </div>
+    // ===== Auth state observer =====
+    auth.onAuthStateChanged(async user => {
+      if (user && user.emailVerified) {
+        await db.ref('users/' + user.uid).update({ status: 'online', verified: true });
+        showMainSite();
+        if (user.email === ADMIN_EMAIL) showAdminPanel();
+      } else {
+        showLoginPage();
+      }
+    });
 
-                        <div class="field input-field">
-                            <input type="password" placeholder="Create password" class="password">
-                        </div>
+    // ===== Viewers counter =====
+    db.ref('users').on('value', snapshot => {
+      const users = snapshot.val() || {};
+      const onlineUsers = Object.values(users).filter(u => u.status === 'online').length;
+      viewerCount.textContent = `Viewers Online: ${onlineUsers}`;
+      renderUsers(users);
+    });
 
-                        <div class="field input-field">
-                            <input type="password" placeholder="Confirm password" class="password">
-                            <i class='bx bx-hide eye-icon'></i>
-                        </div>
+    function renderUsers(users) {
+      usersTable.innerHTML = '';
+      Object.values(users).forEach(u => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${u.email}</td><td>${u.verified ? '✅' : '❌'}</td><td>${u.status}</td>`;
+        usersTable.appendChild(row);
+      });
+    }
 
-                        <div class="field button-field">
-                            <button>Signup</button>
-                        </div>
-                    </form>
+    function showAdminPanel() {
+      adminPanel.classList.remove('hidden');
+    }
 
-                    <div class="form-link">
-                        <span>Already have an account? <a href="#" class="link login-link">Login</a></span>
-                    </div>
-                </div>
+    function showMainSite() {
+      loginPage.classList.add('hidden');
+      mainSite.classList.remove('hidden');
+    }
 
-                <div class="line"></div>
-
-                <div class="media-options">
-                    <a href="#" class="field facebook">
-                        <i class='bx bxl-facebook facebook-icon'></i>
-                        <span>Login with Facebook</span>
-                    </a>
-                </div>
-
-                <div class="media-options">
-                    <a href="#" class="field google">
-                        <img src="images/google.png" alt="" class="google-img">
-                        <span>Login with Google</span>
-                    </a>
-                </div>
-
-            </div>
-        </section>
-
-        <!-- JavaScript -->
-        <script src="script.js"></script>
-    </body>
-
+    function showLoginPage() {
+      mainSite.classList.add('hidden');
+      adminPanel.classList.add('hidden');
+      loginPage.classList.remove('hidden');
+    }
+  </script>
+</body>
 </html>
