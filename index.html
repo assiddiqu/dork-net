@@ -208,41 +208,7 @@
       try{await auth.createUserWithEmailAndPassword(email,pw);authModal.style.display='none';}
       catch(e){alert('Register error: '+e.message)}
     });
-    <!-- include firebase v10+ modules using type="module" like earlier admin file -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-  import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
-
-  const firebaseConfig = { /* your config */ };
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getDatabase(app);
-
-  // Call this when user presses Register
-  async function registerUser(email, password, displayName) {
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const user = cred.user;
-      // send verification email (Firebase will send an email with link)
-      await sendEmailVerification(user);
-      // write user profile to Realtime Database so admin can read it
-      await set(ref(db, 'users/' + user.uid), {
-        uid: user.uid,
-        displayName: displayName || '',
-        email: user.email,
-        createdAt: Date.now(),
-        emailVerified: user.emailVerified || false,
-        isOnline: false
-      });
-      alert('Registration successful — verification email sent. Please verify your email before using the site.');
-    } catch (err) {
-      console.error('Register error', err);
-      alert('Register failed: ' + err.message);
-    }
-  }
-  // Expose for form hooks
-  window.registerUser = registerUser;
+    
 
     // Google
     googleSign.addEventListener('click',async()=>{
