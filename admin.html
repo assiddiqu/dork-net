@@ -3,284 +3,205 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Panel - MyFlix Dashboard (Robust)</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>Admin Dashboard - Real-time Panel</title>
   <style>
-    body {margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;background:linear-gradient(180deg,#071021,#0b1220);color:#fff}
-    .center{display:flex;align-items:center;justify-content:center}
-    .login-container{height:100vh}
-    .login-box{background:rgba(255,255,255,0.03);padding:28px;border-radius:12px;margin:20px;box-shadow:0 6px 30px rgba(0,0,0,0.6)}
-    input{width:260px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#fff;margin:8px 0}
-    .btn{background:#e50914;border:none;padding:10px 14px;border-radius:8px;color:#fff;cursor:pointer}
-    .btn:disabled{opacity:0.6;cursor:not-allowed}
-    header{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.02)}
-    .brand{font-weight:700;color:#e50914}
-    .stats{display:flex;gap:18px;align-items:center}
-    .stat{display:flex;flex-direction:column;align-items:flex-end}
-    .stat .num{font-size:20px;font-weight:700}
-    .main{display:grid;grid-template-columns:320px 1fr;gap:18px;padding:18px}
-    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
-    .users{max-height:64vh;overflow:auto}
-    .user-row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(0,0,0,0.2)}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:10px;border-bottom:1px dashed rgba(255,255,255,0.04);font-size:13px;text-align:left}
-    th{color:#aab0b6;font-size:12px;text-transform:uppercase}
-    .banner{padding:10px;background:#ffcccb;color:#550000;border-radius:8px;margin:12px}
-    footer{padding:12px;text-align:center;color:#9aa0a6}
-    @media(max-width:900px){.main{grid-template-columns:1fr}}
+    body {
+      margin: 0;
+      font-family: "Poppins", sans-serif;
+      background: linear-gradient(135deg, #0a0f1f, #161b30);
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 30px 40px;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .card:hover {
+      transform: scale(1.02);
+    }
+
+    input {
+      width: 250px;
+      padding: 10px;
+      margin: 10px;
+      border: none;
+      border-radius: 10px;
+      outline: none;
+    }
+
+    button {
+      background: #4a6cf7;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #3553c7;
+    }
+
+    #dashboard {
+      display: none;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-top: 30px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 20px;
+      width: 200px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    }
   </style>
 </head>
 <body>
-  <div id="banner"></div>
 
-  <div id="loginPage" class="center login-container">
-    <div class="login-box center" style="flex-direction:column">
-      <h2>Admin Sign In</h2>
-      <input id="email" type="email" placeholder="Admin email" />
-      <input id="password" type="password" placeholder="Password" />
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn" id="signInBtn">Sign In</button>
-        <button class="btn" id="demoBtn">Demo (no Firebase)</button>
-      </div>
-      <p id="loginError" style="color:#ff8b8b;margin-top:8px"></p>
-      <p style="color:#9aa0a6;margin-top:8px;font-size:13px">Tip: if you haven't set Firebase config, use Demo to test UI locally.</p>
+  <div class="container">
+    <!-- Login Section -->
+    <div id="loginBox" class="card">
+      <h2>Admin Login</h2>
+      <input type="email" id="email" placeholder="Enter admin email" />
+      <input type="password" id="password" placeholder="Enter password" />
+      <button onclick="adminLogin()">Login</button>
+      <p id="loginMessage"></p>
     </div>
-  </div>
 
-  <div id="dashboardPage" style="display:none">
-    <header>
-      <div class="brand">MyFlix Admin</div>
+    <!-- Dashboard Section -->
+    <div id="dashboard" class="card">
+      <h2>🔥 Admin Dashboard</h2>
       <div class="stats">
-        <div class="stat"><div class="num" id="liveCount">0</div><div class="label">Live viewers</div></div>
-        <div class="stat"><div class="num" id="totalCount">0</div><div class="label">Total users</div></div>
-        <div id="adminArea"></div>
-      </div>
-    </header>
-
-    <div class="main">
-      <div class="panel">
-        <h3>Connected Users</h3>
-        <div class="users" id="usersList"><p style="color:#9aa0a6">No users yet</p></div>
-      </div>
-
-      <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <h3>User Accounts (Realtime)</h3>
-          <div><button class="btn" id="refreshBtn">Refresh</button><button class="btn" id="logoutBtn" style="margin-left:8px">Logout</button></div>
+        <div class="stat-box">
+          <h3>👥 Users</h3>
+          <p id="userCount">0</p>
         </div>
-
-        <table>
-          <thead><tr><th>Name / Email</th><th>Last Seen</th><th>Online</th><th>Action</th></tr></thead>
-          <tbody id="accountsTable"><tr><td colspan="4">No data</td></tr></tbody>
-        </table>
+        <div class="stat-box">
+          <h3>📺 Viewers</h3>
+          <p id="viewerCount">0</p>
+        </div>
+      </div>
+      <div style="margin-top:30px;">
+        <h3>👤 Logged in as:</h3>
+        <p id="adminEmail"></p>
+        <button onclick="logout()">Logout</button>
       </div>
     </div>
-
-    <footer>MyFlix Admin Panel — Demo / Production ready. Secure your DB rules for production.</footer>
   </div>
 
-  <!-- Firebase SDKs (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
 
-  <script>
-    // ---------------- CONFIG ----------------
-    // Replace these with your Firebase project values for production
+    // 🔥 Your Firebase config
     const firebaseConfig = {
-  apiKey: "AIzaSyDwJnXHz89BExap-LPyX1xEc3dRD7ar5a4",
-  authDomain: "neat-pagoda-412310.firebaseapp.com",
-  databaseURL: "https://neat-pagoda-412310-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "neat-pagoda-412310",
-  storageBucket: "neat-pagoda-412310.firebasestorage.app",
-  messagingSenderId: "606835868303",
-  appId: "1:606835868303:web:47fb7d7cd8a5db089466fa",
-  measurementId: "G-EGC4866KWC"
-};
+      apiKey: "AIzaSyDwJnXHz89BExap-LPyX1xEc3dRD7ar5a4",
+      authDomain: "neat-pagoda-412310.firebaseapp.com",
+      databaseURL: "https://neat-pagoda-412310-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "neat-pagoda-412310",
+      storageBucket: "neat-pagoda-412310.firebasestorage.app",
+      messagingSenderId: "606835868303",
+      appId: "1:606835868303:web:47fb7d7cd8a5db089466fa",
+      measurementId: "G-EGC4866KWC"
+    };
 
-    // Admin allowed emails / UIDs
-    const ADMIN_EMAILS = ['zainkhan7518438417@gmail.com'];
-    const ADMIN_UIDS = [pOcW6xrYeCa2v1dG9UYfLtwp9uq2]; // prefer adding your admin UID(s) here for stronger security
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
 
-    // ---------------- Helpers ----------------
-    function isConfigPopulated(cfg){
-      if(!cfg) return false;
-      return ['apiKey','authDomain','databaseURL','projectId','appId'].every(k=>cfg[k] && !String(cfg[k]).includes('REPLACE'));
-    }
+    const ADMIN_EMAIL = "zainkhan7518438417@gmail.com";
+    const ADMIN_UID = "4OWH8LLMVbNda3NcNu5FT9A5YNY2";
 
-    function showBanner(msg){ document.getElementById('banner').innerHTML = '<div class="banner">'+msg+'</div>'; }
-    function clearBanner(){ document.getElementById('banner').innerHTML=''; }
+    const loginBox = document.getElementById("loginBox");
+    const dashboard = document.getElementById("dashboard");
+    const loginMessage = document.getElementById("loginMessage");
+    const adminEmail = document.getElementById("adminEmail");
 
-    // ---------------- Init Firebase (safely) ----------------
-    let firebaseInitialized = false; let auth = null; let db = null; let presenceRef = null;
-    if(isConfigPopulated(firebaseConfig)){
-      try{
-        firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
-        db = firebase.database();
-        presenceRef = db.ref('presence');
-        firebaseInitialized = true;
-        console.log('Firebase initialized');
-      } catch(e){
-        console.error('Firebase init error:', e);
-        showBanner('Firebase initialization error — running in demo mode. Check console for details.');
+    function showDashboard(user) {
+      if (user.email === ADMIN_EMAIL && user.uid === ADMIN_UID) {
+        loginBox.style.display = "none";
+        dashboard.style.display = "block";
+        adminEmail.textContent = user.email;
+        startRealtimeData();
+      } else {
+        loginMessage.textContent = "Access denied! Not authorized.";
+        signOut(auth);
       }
-    } else {
-      showBanner('Firebase config not set. Running in demo mode. Replace firebaseConfig to enable live data.');
     }
 
-    // ---------------- UI refs ----------------
-    const loginPage = document.getElementById('loginPage');
-    const dashboardPage = document.getElementById('dashboardPage');
-    const signInBtn = document.getElementById('signInBtn');
-    const demoBtn = document.getElementById('demoBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const liveCountEl = document.getElementById('liveCount');
-    const totalCountEl = document.getElementById('totalCount');
-    const usersList = document.getElementById('usersList');
-    const accountsTable = document.getElementById('accountsTable');
-    const loginError = document.getElementById('loginError');
+    // Admin login
+    window.adminLogin = function() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      signInWithEmailAndPassword(auth, email, password)
+        .then(userCredential => {
+          const user = userCredential.user;
+          showDashboard(user);
+        })
+        .catch(error => {
+          loginMessage.textContent = "Login failed: " + error.message;
+        });
+    };
 
-    // ---------------- Auth helpers ----------------
-    function isAdmin(user){
-      if(!user) return false;
-      if(ADMIN_UIDS.includes(user.uid)) return true;
-      if(ADMIN_EMAILS.includes(user.email)) return true;
-      return false;
+    // Real-time user & viewer count
+    function startRealtimeData() {
+      const usersRef = ref(db, "users/");
+      const viewersRef = ref(db, "viewers/");
+
+      onValue(usersRef, (snapshot) => {
+        const data = snapshot.val();
+        const count = data ? Object.keys(data).length : 0;
+        document.getElementById("userCount").textContent = count;
+      });
+
+      onValue(viewersRef, (snapshot) => {
+        const data = snapshot.val();
+        const count = data ? Object.keys(data).length : 0;
+        document.getElementById("viewerCount").textContent = count;
+      });
     }
 
-    function showDashboardFor(user){
-      loginPage.style.display='none'; dashboardPage.style.display='block'; clearBanner();
-      renderAdminInfo(user);
-      attachPresenceListeners();
-    }
-
-    function renderAdminInfo(user){
-      const adminArea = document.getElementById('adminArea');
-      if(!user){ adminArea.innerHTML = '<button class="btn" id="openLogin">Sign in</button>'; document.getElementById('openLogin')?.addEventListener('click', ()=>{ loginPage.style.display='flex'; dashboardPage.style.display='none'; }); return; }
-      adminArea.innerHTML = `<div style="display:flex;gap:12px;align-items:center"><div style="font-weight:700">${user.email}</div></div>`;
-    }
-
-    // ---------------- Sign in flow ----------------
-    signInBtn.addEventListener('click', async ()=>{
-      loginError.textContent='';
-      const email = document.getElementById('email').value.trim();
-      const pw = document.getElementById('password').value;
-      if(!email || !pw){ loginError.textContent = 'Enter email and password'; return; }
-      if(!auth){ loginError.textContent = 'Firebase not configured. Use Demo mode or set firebaseConfig.'; return; }
-      try{
-        const cred = await auth.signInWithEmailAndPassword(email,pw);
-        const user = cred.user;
-        if(isAdmin(user)){
-          showDashboardFor(user);
-        } else {
-          loginError.textContent = 'Access denied: user is not an admin';
-          await auth.signOut();
-        }
-      } catch(e){
-        console.error('Sign-in error', e);
-        loginError.textContent = e.message || 'Sign-in failed';
+    // Auth state observer
+    onAuthStateChanged(auth, (user) => {
+      if (user) showDashboard(user);
+      else {
+        loginBox.style.display = "block";
+        dashboard.style.display = "none";
       }
     });
 
-    demoBtn.addEventListener('click', ()=>{
-      // Demo mode: show dashboard with mock data
-      loginPage.style.display='none'; dashboardPage.style.display='block';
-      clearBanner(); renderAdminInfo(null); populateMockData();
-    });
-
-    logoutBtn.addEventListener('click', async ()=>{ if(auth) await auth.signOut(); loginPage.style.display='flex'; dashboardPage.style.display='none'; clearPresenceUI(); });
-    refreshBtn.addEventListener('click', ()=>{ if(firebaseInitialized) attachPresenceListeners(); else populateMockData(); });
-
-    // ---------------- Presence & UI updates ----------------
-    let presenceListenerAttached = false;
-    function attachPresenceListeners(){
-      if(!firebaseInitialized || !presenceRef){ populateMockData(); return; }
-      try{
-        // detach existing
-        if(presenceListenerAttached){ try{ presenceRef.off(); }catch(e){} }
-        presenceRef.on('value', snap=>{
-          const data = snap.val() || {};
-          renderPresence(data);
-        }, err=>{ console.error('Realtime read error', err); showBanner('Realtime DB error — see console for details.'); });
-        presenceListenerAttached = true;
-      } catch(e){ console.error('attachPresenceListeners caught', e); showBanner('Unable to attach realtime listeners.'); populateMockData(); }
-    }
-
-    function renderPresence(data){
-      // update counts
-      const uids = Object.keys(data||{});
-      const live = uids.filter(uid=> data[uid] && data[uid].isOnline).length;
-      liveCountEl.textContent = live;
-      totalCountEl.textContent = uids.length;
-
-      // left list
-      usersList.innerHTML = '';
-      uids.sort((a,b)=> (data[b].lastSeen||0)-(data[a].lastSeen||0));
-      if(uids.length===0){ usersList.innerHTML = '<p style="color:#9aa0a6">No users</p>'; }
-      uids.forEach(uid=>{
-        const u = data[uid] || {};
-        const row = document.createElement('div'); row.className='user-row';
-        row.innerHTML = `<div><strong>${u.displayName||u.email||'Unknown'}</strong><div style="font-size:13px;color:#9aa0a6">${u.email||''}</div></div><div style="text-align:right"><div style="font-size:13px;color:${u.isOnline? '#8ef29a':'#9aa0a6'}">${u.isOnline? 'Online':'Offline'}</div><div style="font-size:12px;color:#9aa0a6">${u.lastSeen? new Date(u.lastSeen).toLocaleString() : ''}</div></div>`;
-        usersList.appendChild(row);
+    // Logout
+    window.logout = function() {
+      signOut(auth).then(() => {
+        loginBox.style.display = "block";
+        dashboard.style.display = "none";
       });
-
-      // accounts table
-      const tbody = accountsTable;
-      tbody.innerHTML = '';
-      if(uids.length===0){ tbody.innerHTML = '<tr><td colspan="4">No users</td></tr>'; return; }
-      uids.forEach(uid=>{
-        const u = data[uid] || {};
-        const last = u.lastSeen? new Date(u.lastSeen).toLocaleString() : '—';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${u.displayName||''}<div style="font-size:12px;color:#9aa0a6">${u.email||''}</div></td><td>${last}</td><td>${u.isOnline? 'Yes':'No'}</td><td><button class="btn forceSign" data-uid="${uid}">Force signout</button></td>`;
-        tbody.appendChild(tr);
-      });
-
-      // attach force-sign handlers
-      tbody.querySelectorAll('button.forceSign').forEach(btn=>{
-        btn.onclick = async ()=>{
-          const uid = btn.dataset.uid;
-          if(!confirm('Force signout for '+uid+'?')) return;
-          if(!firebaseInitialized){ alert('Realtime DB not configured'); return; }
-          try{ await db.ref('forceSignout/'+uid).set({askedBy: auth.currentUser? auth.currentUser.uid : 'admin', at: Date.now()}); alert('Signout request sent'); }
-          catch(e){ console.error('Force signout failed', e); alert('Failed to send signout request'); }
-        };
-      });
-    }
-
-    function clearPresenceUI(){ liveCountEl.textContent='0'; totalCountEl.textContent='0'; usersList.innerHTML='<p style="color:#9aa0a6">Sign in to view presence</p>'; accountsTable.innerHTML='<tr><td colspan="4">Sign in to view accounts</td></tr>'; }
-
-    // ---------------- Mock data for testing ----------------
-    function populateMockData(){
-      const now = Date.now();
-      const mock = {
-        u1:{displayName:'Alice',email:'alice@example.com',isOnline:true,lastSeen: now - 30*1000},
-        u2:{displayName:'Bob',email:'bob@example.com',isOnline:false,lastSeen: now - 15*60*1000},
-        u3:{displayName:'Cara',email:'cara@example.com',isOnline:true,lastSeen: now - 10*1000}
-      };
-      renderPresence(mock);
-    }
-
-    // ---------------- Auth observer (if firebase available) ----------------
-    if(auth){
-      auth.onAuthStateChanged(user=>{
-        if(user){
-          if(isAdmin(user)){
-            showDashboardFor(user);
-          } else { // not admin
-            alert('Account is not authorized as admin.'); auth.signOut(); renderAdminInfo(null); clearPresenceUI(); loginPage.style.display='flex'; dashboardPage.style.display='none';
-          }
-        } else { renderAdminInfo(null); clearPresenceUI(); loginPage.style.display='flex'; dashboardPage.style.display='none'; }
-      });
-    } else {
-      // no firebase - start in demo state (show login page)
-      loginPage.style.display='flex'; dashboardPage.style.display='none';
-    }
-
-    // Expose for debugging
-    window._adminPanel = { firebaseInitialized, auth, db, presenceRef };
+    };
   </script>
 </body>
 </html>
